@@ -8,6 +8,7 @@ import { ComponentVnode, TypeVnode, normalizeVNode } from './vnode'
 import { queueJob } from './scheduler'
 // 从渲染模块导入子虚拟节点、元素类型和 patch 函数
 import { ChildVnode, TElement, patch } from './render'
+import { isRef } from '@/reactivity/ref'
 
 /**
  * 组件实例接口，定义了组件实例的结构
@@ -95,10 +96,7 @@ export function mountComponent(
   })
 
   // 合并 props 和 setupState 到实例的 ctx
-  instance.ctx = {
-    ...instance.props,
-    ...instance.setupState
-  }
+  instance.ctx = createAutoUnwrapProxy(instance)
 
   // 创建副作用函数，用于更新组件
   instance.update = effect(
@@ -143,6 +141,56 @@ export function mountComponent(
     {
       // 使用调度器将副作用函数放入任务队列
       scheduler: (fn) => queueJob(fn)
+    }
+  )
+}
+
+// 创建自动解包代理
+function createAutoUnwrapProxy(instance: Instance) {
+  return new Proxy(
+    {},
+    {
+      get(_, key: string | symbol) {
+        // 明确 key 的类型
+        // 1. 确保 key 是 string 类型
+        if (typeof key !== 'string') return undefined
+
+        // 2. 优先从 setupState 中获取
+        if (key in instance.setupState!) {
+          // 使用非空断言
+          const value = instance.setupState![key] // 明确使用 string 类型索引
+          return isRef(value) ? value.value : value
+        }
+
+        // 3. 从 props 中获取
+        if (key in instance.props!) return instance.props![key]
+
+        // 4. 从 attrs 中获取
+        if (key in instance.attrs!) return instance.attrs![key]
+
+        return undefined
+      },
+      set(_, key: string | symbol, value) {
+        // 1. 确保 key 是 string 类型
+        if (typeof key !== 'string') return false
+
+        // 2. 只允许修改 setupState 中的属性
+        if (key in instance.setupState!) {
+          const ref = instance.setupState![key]
+
+          // 如果是 ref 则修改其 value
+          if (isRef(ref)) {
+            ref.value = value
+            return true
+          }
+
+          // 普通属性直接修改
+          instance.setupState![key] = value
+          return true
+        }
+
+        return false
+      }
     }
   )
 }
