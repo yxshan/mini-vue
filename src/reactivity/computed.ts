@@ -41,10 +41,17 @@ export function computed(computedOptions: computedOptions) {
   return new ComputedImpl(getter, setter)
 }
 
+// 添加计算属性类型判断
+export function isComputed(value: any): boolean {
+  return !!(value && value.__isComputed)
+}
+
 /**
  * 计算属性的实现类
  */
 class ComputedImpl {
+  // 添加计算属性标识
+  __isComputed = true
   // 存储计算属性的值
   __value: any
   // 标记计算属性是否需要重新计算
