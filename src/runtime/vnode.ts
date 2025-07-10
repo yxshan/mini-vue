@@ -1,3 +1,4 @@
+import { isRef } from '@/reactivity/ref'
 // 从 utils 模块导入类型判断函数
 import { isObject, isString, isArray, isNumber } from '../utils'
 // 从 component 模块导入 Instance 类型
@@ -187,9 +188,14 @@ export function h(
  */
 export function normalizeVNode(result: any) {
   // 如果结果是数组，创建一个 Fragment 虚拟节点
-  if (isArray(result)) return h(Fragment, null, result)
+  if (isArray(result)) return h(Fragment, null, result.map(normalizeVNode))
   // 如果结果是对象，直接返回
-  if (isObject(result)) return result
+  if (isObject(result)) {
+    if (isRef(result)) {
+      return normalizeVNode(result.value)
+    }
+    return result
+  }
   // 否则，创建一个 Text 虚拟节点
   return h(Text, null, result.toString())
 }
