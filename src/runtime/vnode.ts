@@ -3,6 +3,7 @@ import { isRef } from '@/reactivity/ref'
 import { isObject, isString, isArray, isNumber } from '../utils'
 // 从 component 模块导入 Instance 类型
 import { Instance } from './component'
+import { isComputed } from '@/reactivity/computed'
 
 /**
  * 虚拟节点的基础接口，定义了虚拟节点的基本属性
@@ -191,7 +192,8 @@ export function normalizeVNode(result: any) {
   if (isArray(result)) return h(Fragment, null, result.map(normalizeVNode))
   // 如果结果是对象，直接返回
   if (isObject(result)) {
-    if (isRef(result)) {
+    // 处理 ref 和 computed 的解包
+    if (isRef(result) || isComputed(result)) {
       return normalizeVNode(result.value)
     }
     return result
