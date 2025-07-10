@@ -9,6 +9,7 @@ import { queueJob } from './scheduler'
 // 从渲染模块导入子虚拟节点、元素类型和 patch 函数
 import { ChildVnode, TElement, patch } from './render'
 import { isRef } from '@/reactivity/ref'
+import { isComputed } from '@/reactivity/computed'
 
 /**
  * 组件实例接口，定义了组件实例的结构
@@ -157,9 +158,14 @@ function createAutoUnwrapProxy(instance: Instance) {
 
         // 2. 优先从 setupState 中获取
         if (key in instance.setupState!) {
-          // 使用非空断言
-          const value = instance.setupState![key] // 明确使用 string 类型索引
-          return isRef(value) ? value.value : value
+          const value = instance.setupState[key]
+
+          // 处理 ref 和 computed 的解包
+          if (isRef(value) || isComputed(value)) {
+            return value.value
+          }
+
+          return value
         }
 
         // 3. 从 props 中获取
@@ -176,12 +182,18 @@ function createAutoUnwrapProxy(instance: Instance) {
 
         // 2. 只允许修改 setupState 中的属性
         if (key in instance.setupState!) {
-          const ref = instance.setupState![key]
+          const target = instance.setupState![key]
 
           // 如果是 ref 则修改其 value
-          if (isRef(ref)) {
-            ref.value = value
+          if (isRef(target)) {
+            target.value = value
             return true
+          }
+
+          // computed 是只读的，不能直接赋值
+          if (isComputed(target)) {
+            console.warn(`Computed property "${String(key)}" is read-only`)
+            return false
           }
 
           // 普通属性直接修改
